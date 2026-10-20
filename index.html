@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>8天6夜 重庆·九寨沟 行程助手 | 实时共享行程与美图</title>
 
     <!-- ========================================== -->
@@ -63,6 +63,46 @@
             justify-content: center;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
         }
+
+        /* ================= Mobile layout ================= */
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        #view-map { display: none; }
+        #view-map:not(.hidden) { display: flex; flex-direction: column; }
+        #map { flex: 1 1 auto; min-height: 0; height: auto; width: 100%; }
+
+        /* Header view toggle: two equal tappable halves */
+        .view-toggle > button { flex: 1 1 0; justify-content: center; min-height: 40px; }
+        .view-toggle { width: 100%; }
+        .locate-btn { min-height: 40px; }
+
+        /* Map card sits above the Leaflet attribution and respects notches */
+        .map-card {
+            bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+            left: max(0.75rem, env(safe-area-inset-left, 0px));
+            right: max(0.75rem, env(safe-area-inset-right, 0px));
+        }
+        .day-labels { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); text-align: center; }
+        .day-labels em { font-style: normal; }
+
+        /* Touch-friendly tap targets */
+        button, [onclick] { touch-action: manipulation; }
+        .timeline-content button { min-height: 36px; }
+
+        @media (max-width: 639px) {
+            header { padding-top: max(0.75rem, env(safe-area-inset-top, 0px)); }
+            .timeline-item::after { display: none; }
+            .timeline-content h3 { line-height: 1.35; }
+            .day-labels { font-size: 10px; }
+            .day-labels em { display: none; }
+            .map-card { padding: 0.75rem; }
+            .weather-badge { max-width: 100%; }
+            #toast { max-width: calc(100vw - 2rem); }
+        }
     </style>
 </head>
 <body class="flex flex-col h-[100dvh] overflow-hidden">
@@ -77,8 +117,8 @@
                 <p class="text-[11px] text-gray-500">重庆 · 成都 · 黄龙 · 九寨沟 | 2026.10.25 - 10.31</p>
             </div>
             
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                <div class="bg-gray-100 p-1 rounded-xl flex items-center space-x-1 border border-gray-200">
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <div class="view-toggle bg-gray-100 p-1 rounded-xl flex items-center space-x-1 border border-gray-200 sm:w-auto">
                     <button onclick="switchView('timeline')" id="btn-timeline" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white text-emerald-600 shadow-sm flex items-center">
                         <i class="fa-solid fa-stream mr-1.5"></i>时间轴视图
                     </button>
@@ -86,7 +126,7 @@
                         <i class="fa-solid fa-map-location-dot mr-1.5"></i>地图模式
                     </button>
                 </div>
-                <button onclick="jumpToCurrentTime()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-medium shadow-sm transition flex items-center whitespace-nowrap">
+                <button onclick="jumpToCurrentTime()" class="locate-btn bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-medium shadow-sm transition flex items-center justify-center whitespace-nowrap">
                     <i class="fa-solid fa-location-crosshairs mr-1.5"></i>定位当前行程
                 </button>
             </div>
@@ -97,7 +137,7 @@
     <div class="bg-emerald-50 border-b border-emerald-100 px-4 py-2 text-xs text-emerald-800 flex-shrink-0 flex items-center justify-between">
         <div class="flex items-center truncate">
             <i class="fa-solid fa-cloud-arrow-up text-emerald-600 mr-2 flex-shrink-0 animate-pulse"></i>
-            <span class="truncate">云端同步：您上传的照片将实时保存，所有查看此链接的好友均可同步欣赏！</span>
+            <span class="leading-snug">云端同步：您上传的照片将实时保存，所有查看此链接的好友均可同步欣赏！</span>
         </div>
         <span id="sync-status" class="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-bold whitespace-nowrap ml-2">连接中...</span>
     </div>
@@ -112,20 +152,20 @@
         <!-- Map View Panel -->
         <div id="view-map" class="absolute inset-0 hidden flex flex-col">
             <div id="map" class="flex-grow w-full"></div>
-            <div class="absolute bottom-4 left-4 right-4 z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-200" ontouchstart="event.stopPropagation()">
-                <div class="flex justify-between items-center mb-2">
+            <div class="map-card absolute z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-200" ontouchstart="event.stopPropagation()">
+                <div class="flex flex-wrap justify-between items-center gap-1 mb-2">
                     <div class="flex items-center space-x-2">
                         <span id="slider-day-badge" class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5 rounded shadow-sm">第 1 天</span>
                         <span id="slider-date-title" class="text-xs sm:text-sm font-bold text-gray-800">10月25日 (周日)</span>
                     </div>
-                    <span id="slider-day-title" class="text-xs font-semibold text-emerald-700 truncate max-w-[140px] sm:max-w-xs">出发 - 重庆</span>
+                    <span id="slider-day-title" class="text-xs font-semibold text-emerald-700 truncate max-w-full sm:max-w-xs">出发 - 重庆</span>
                 </div>
                 <div class="flex items-center gap-3">
                     <input type="range" id="day-slider" min="1" max="8" value="1" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" oninput="onSliderChange(this.value)">
                 </div>
-                <div class="flex justify-between text-[10px] text-gray-400 mt-1.5 px-1 font-medium">
-                    <span>D1重庆</span><span>D2成都</span><span>D3黄龙</span><span>D4九寨</span>
-                    <span>D5返蓉</span><span>D6成都</span><span>D7回渝</span><span>D8抵家</span>
+                <div class="day-labels text-[10px] text-gray-400 mt-1.5 px-1 font-medium">
+                    <span>D1<em>重庆</em></span><span>D2<em>成都</em></span><span>D3<em>黄龙</em></span><span>D4<em>九寨</em></span>
+                    <span>D5<em>返蓉</em></span><span>D6<em>成都</em></span><span>D7<em>回渝</em></span><span>D8<em>抵家</em></span>
                 </div>
             </div>
         </div>
@@ -389,7 +429,7 @@
                                 <span class="text-xs font-semibold text-gray-500">${dateDisplay} (${day.weekday})</span>
                                 <h3 class="text-base sm:text-lg font-bold text-gray-800 mt-1">${day.title}</h3>
                             </div>
-                            <div class="weather-badge flex items-center bg-white px-3 py-2 rounded-xl shadow-sm border border-emerald-100 min-w-max">
+                            <div class="weather-badge flex items-center bg-white px-3 py-2 rounded-xl shadow-sm border border-emerald-100 max-w-full sm:max-w-none">
                                 <i class="fa-solid ${day.weather.icon} text-emerald-500 text-xl mr-3"></i>
                                 <div class="text-left">
                                     <div class="text-[10px] text-gray-500">${day.weather.condition}</div>
@@ -419,7 +459,7 @@
                                     </div>
                                 </div>
                             
-                                <div class="w-full sm:w-36 h-24 rounded-xl overflow-hidden flex-shrink-0 shadow-sm mt-2 sm:mt-0 relative group border border-gray-200 bg-gray-100 flex items-center justify-center cursor-pointer" onclick="triggerImageUpload('${uniqueEventId}')" title="点击更改照片">
+                                <div class="w-full sm:w-36 h-40 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 shadow-sm mt-2 sm:mt-0 relative group border border-gray-200 bg-gray-100 flex items-center justify-center cursor-pointer" onclick="triggerImageUpload('${uniqueEventId}')" title="点击更改照片">
                                     <input type="file" id="upload-${uniqueEventId}" accept="image/*" class="hidden" onclick="event.stopPropagation()" onchange="handleImageUpload(event, '${uniqueEventId}')">
                                     <img src="${currentImg}" alt="scenic" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/400x300/10b981/ffffff?text=Scenic'">
                                     
