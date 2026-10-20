@@ -68,16 +68,22 @@
             left: max(0.75rem, env(safe-area-inset-left, 0px));
             right: max(0.75rem, env(safe-area-inset-right, 0px));
         }
-        .day-labels { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); text-align: center; }
-        .day-labels em { font-style: normal; }
+        .ticks { position: relative; height: 26px; margin-top: 2px; }
+        .tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; line-height: 1.15; color: #9ca3af; text-align: center; cursor: pointer; padding: 2px 4px; white-space: nowrap; font-weight: 500; }
+        .tick em { display: block; font-style: normal; font-size: 9px; }
+        .tick.on { color: #059669; font-weight: 700; }
+        .stop-ticks .tick.on { color: #d97706; }
+        .custom-marker { transition: transform .25s, background .25s, box-shadow .25s; }
+        .custom-marker.active { background: #f59e0b !important; transform: scale(1.25); box-shadow: 0 0 0 7px rgba(245,158,11,.28), 0 4px 6px -1px rgba(0,0,0,.3); }
+        .step-btn { width: 28px; height: 28px; flex-shrink: 0; border-radius: 9999px; background: #f3f4f6; color: #4b5563; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+        .step-btn:active { background: #e5e7eb; }
         button, [onclick] { touch-action: manipulation; }
 
         @media (max-width: 639px) {
             header { padding-top: max(0.75rem, env(safe-area-inset-top, 0px)); }
             .timeline-item::after { display: none; }
             .timeline-content h3 { line-height: 1.35; }
-            .day-labels { font-size: 10px; }
-            .day-labels em { display: none; }
+            .tick em { display: none; }
             .map-card { padding: 0.75rem; }
             .weather-badge { max-width: 100%; }
             #toast { max-width: calc(100vw - 2rem); }
@@ -136,12 +142,25 @@
                     </div>
                     <span id="slider-day-title" class="text-xs font-semibold text-emerald-700 truncate max-w-full sm:max-w-xs">出发 - 重庆</span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <input type="range" id="day-slider" min="1" max="8" value="1" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" oninput="onSliderChange(this.value)">
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                    <div id="stop-title" class="text-[11px] sm:text-xs text-gray-600 truncate min-w-0 flex-1"></div>
+                    <button onclick="showDayOverview()" class="text-[10px] px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 flex-shrink-0">全天概览</button>
                 </div>
-                <div class="day-labels text-[10px] text-gray-400 mt-1.5 px-1 font-medium">
-                    <span>D1<em>重庆</em></span><span>D2<em>成都</em></span><span>D3<em>黄龙</em></span><span>D4<em>九寨</em></span>
-                    <span>D5<em>返蓉</em></span><span>D6<em>成都</em></span><span>D7<em>回渝</em></span><span>D8<em>抵家</em></span>
+                <div class="flex items-center gap-2">
+                    <span class="w-7 text-center text-[10px] font-bold text-emerald-700 flex-shrink-0">天</span>
+                    <div class="flex-1 min-w-0">
+                        <input type="range" id="day-slider" min="1" max="8" value="1" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600" oninput="onDaySlider(this.value)">
+                        <div id="day-ticks" class="ticks"></div>
+                    </div>
+                    <span class="w-7 flex-shrink-0"></span>
+                </div>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <button class="step-btn" onclick="stepStop(-1)" aria-label="上一个地点"><i class="fa-solid fa-chevron-left"></i></button>
+                    <div class="flex-1 min-w-0 stop-ticks">
+                        <input type="range" id="stop-slider" min="1" max="6" value="1" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-40" oninput="onStopSlider(this.value)">
+                        <div id="stop-ticks" class="ticks"></div>
+                    </div>
+                    <button class="step-btn" onclick="stepStop(1)" aria-label="下一个地点"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
             </div>
         </div>
@@ -303,58 +322,161 @@
             container.innerHTML = html;
         }
 
+        /* ===== Map: stop-by-stop camera + animated route ===== */
+        const dayCities = ['重庆', '成都', '黄龙', '九寨', '返蓉', '成都', '回渝', '抵家'];
+        const allStops = [];
+        itineraryData.forEach(d => d.events.forEach((ev, i) => allStops.push({ ...ev, day: d.day, dayIdx: i, dayObj: d, id: `d${d.day}-s${ev.seq}` })));
+        const dayFirst = {}, dayCount = {};
+        allStops.forEach((s, i) => { if (!(s.day in dayFirst)) dayFirst[s.day] = i; dayCount[s.day] = (dayCount[s.day] || 0) + 1; });
+
+        function kmBetween(a, b) {
+            const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+            const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+            return 12742 * Math.asin(Math.sqrt(h));
+        }
+        // Quadratic Bezier that bows slightly sideways, so each leg is a soft curve
+        function arcPoints(a, b, n) {
+            const cLat = (a.lat + b.lat) / 2 - (b.lng - a.lng) * 0.15, cLng = (a.lng + b.lng) / 2 + (b.lat - a.lat) * 0.15, pts = [];
+            for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; pts.push([u * u * a.lat + 2 * u * t * cLat + t * t * b.lat, u * u * a.lng + 2 * u * t * cLng + t * t * b.lng]); }
+            return pts;
+        }
+        // One long smooth path through every stop; stopPtIdx[i] = where stop i sits on it
+        const routePts = [], stopPtIdx = [];
+        allStops.forEach((s, i) => {
+            if (i === 0) { routePts.push([s.lat, s.lng]); stopPtIdx.push(0); return; }
+            const a = allStops[i - 1];
+            (kmBetween(a, s) < 0.05 ? [[s.lat, s.lng]] : arcPoints(a, s, 48).slice(1)).forEach(p => routePts.push(p));
+            stopPtIdx.push(routePts.length - 1);
+        });
+
+        let curIdx = 0, progress = 0, animId = null, shownDay = null, dayMarkers = [];
+        let fullLine, progLine, headDot, dayLayer;
+
         function initLeafletMap() {
-            mapInstance = L.map('map', { zoomControl: false }).setView([29.5605, 106.5854], 11);
+            mapInstance = L.map('map', { zoomControl: false }).setView([allStops[0].lat, allStops[0].lng], 11);
             L.control.zoom({ position: 'topright' }).addTo(mapInstance);
             L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
                 maxZoom: 18, minZoom: 4, attribution: '© AutoNavi'
             }).addTo(mapInstance);
-            mapLayerGroup = L.layerGroup().addTo(mapInstance);
-            renderMapForDay(1);
+            fullLine = L.polyline(routePts, { color: '#6b7280', weight: 3, opacity: 0.35, dashArray: '6, 8' }).addTo(mapInstance);
+            progLine = L.polyline([routePts[0]], { color: '#059669', weight: 5, opacity: 0.9, lineCap: 'round' }).addTo(mapInstance);
+            headDot = L.circleMarker(routePts[0], { radius: 7, color: '#fff', weight: 3, fillColor: '#f59e0b', fillOpacity: 1 }).addTo(mapInstance);
+            dayLayer = L.layerGroup().addTo(mapInstance);
+            goToStop(curIdx, true);
         }
 
-        function renderMapForDay(dayNum) {
-            if (!mapLayerGroup) return;
-            mapLayerGroup.clearLayers();
-
-            const targetDay = itineraryData.find(d => d.day === parseInt(dayNum));
-            if (!targetDay) return;
-
-            document.getElementById('slider-day-badge').innerText = `第 ${targetDay.day} 天`;
-            document.getElementById('slider-date-title').innerText = `${targetDay.dateStr} (${targetDay.weekday})`;
-            document.getElementById('slider-day-title').innerText = targetDay.title;
-
-            const latLngs = [];
-
-            targetDay.events.forEach((ev) => {
-                latLngs.push([ev.lat, ev.lng]);
-
-                const customIcon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: `<div class="custom-marker" style="width: 32px; height: 32px; font-size: 13px; background: #10b981;">${ev.seq}</div>`,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
-                });
-
-                const eventId = `d${targetDay.day}-s${ev.seq}`;
-
-                const popupContent = `
-                    <div style="width: 210px; font-family: inherit;">
-                        <img src="${photoSrc(eventId)}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 6px;" onerror="this.onerror=null;this.src=unsplashImages['${ev.imgKey}']">
-                        <div style="font-weight: bold; font-size: 13px; color: #111; margin-bottom: 2px;">第 ${targetDay.day}天 · ${ev.time}</div>
-                        <div style="font-size: 11px; color: #4b5563; margin-bottom: 4px;">${ev.act}</div>
-                        <div style="font-size: 10px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-location-dot"></i> ${ev.locationName}</div>
-                    </div>
-                `;
-
-                L.marker([ev.lat, ev.lng], { icon: customIcon }).bindPopup(popupContent).addTo(mapLayerGroup);
-            });
-
-            if (latLngs.length > 0) {
-                const polyline = L.polyline(latLngs, { color: '#059669', weight: 5, opacity: 0.85, dashArray: '8, 8' }).addTo(mapLayerGroup);
-                if (latLngs.length === 1) mapInstance.flyTo(latLngs[0], 13, { duration: 1.0 });
-                else mapInstance.flyToBounds(polyline.getBounds(), { padding: [60, 60], duration: 1.0, maxZoom: 13 });
+        function drawProgress() {
+            const k = Math.min(Math.floor(progress), routePts.length - 1), pts = routePts.slice(0, k + 1);
+            if (k < routePts.length - 1) {
+                const f = progress - k, a = routePts[k], b = routePts[k + 1];
+                pts.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
             }
+            progLine.setLatLngs(pts);
+            headDot.setLatLng(pts[pts.length - 1]);
+        }
+
+        function stopIcon(s, active) {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="custom-marker${active ? ' active' : ''}" style="width: 32px; height: 32px; font-size: 13px;">${s.seq}</div>`,
+                iconSize: [32, 32], iconAnchor: [16, 16]
+            });
+        }
+
+        function popupHtml(s) {
+            return `
+                <div style="width: 210px; font-family: inherit;">
+                    <img src="${photoSrc(s.id)}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 6px;" onerror="this.onerror=null;this.src=unsplashImages['${s.imgKey}']">
+                    <div style="font-weight: bold; font-size: 13px; color: #111; margin-bottom: 2px;">第 ${s.day}天 · ${s.time}</div>
+                    <div style="font-size: 11px; color: #4b5563; margin-bottom: 4px;">${s.act}</div>
+                    <div style="font-size: 10px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-location-dot"></i> ${s.locationName}</div>
+                </div>`;
+        }
+
+        function renderDayMarkers(day) {
+            dayLayer.clearLayers();
+            dayMarkers = [];
+            allStops.filter(s => s.day === day).forEach(s => {
+                const m = L.marker([s.lat, s.lng], { icon: stopIcon(s, false) })
+                    .bindPopup(popupHtml(s), { autoPan: false, offset: [0, -6] }).addTo(dayLayer);
+                m.on('click', () => goToStop(allStops.indexOf(s)));
+                dayMarkers.push(m);
+            });
+            shownDay = day;
+        }
+
+        function renderTicks(id, items, active, onPick) {
+            const el = document.getElementById(id);
+            el.innerHTML = '';
+            items.forEach((it, i) => {
+                const t = document.createElement('div');
+                t.className = 'tick' + (i === active ? ' on' : '');
+                t.style.left = `calc(8px + (100% - 16px) * ${items.length > 1 ? i / (items.length - 1) : 0.5})`;
+                t.innerHTML = it.label + (it.sub ? `<em>${it.sub}</em>` : '');
+                t.onclick = () => onPick(i);
+                el.appendChild(t);
+            });
+        }
+
+        function updateSliders(s) {
+            const d = s.dayObj, n = dayCount[d.day];
+            document.getElementById('slider-day-badge').innerText = `第 ${d.day} 天`;
+            document.getElementById('slider-date-title').innerText = `${d.dateStr} (${d.weekday})`;
+            document.getElementById('slider-day-title').innerText = d.title;
+            document.getElementById('stop-title').innerText = `S${s.seq} · ${s.time} ${s.act}`;
+            const ds = document.getElementById('day-slider'), ss = document.getElementById('stop-slider');
+            ds.value = d.day;
+            ss.min = 1; ss.max = Math.max(2, n); ss.value = s.dayIdx + 1; ss.disabled = n < 2;
+            renderTicks('day-ticks', itineraryData.map(x => ({ label: `D${x.day}`, sub: dayCities[x.day - 1] })), d.day - 1, i => goToStop(dayFirst[i + 1]));
+            renderTicks('stop-ticks', allStops.filter(x => x.day === d.day).map(x => ({ label: `S${x.seq}` })), s.dayIdx, i => goToStop(dayFirst[d.day] + i));
+        }
+
+        // Camera: fly to the stop, parked in the part of the map that is not hidden behind the control card
+        function flyCam(s, dur) {
+            const z = s.imgKey === 'flight' ? 11 : 13, size = mapInstance.getSize();
+            const ty = (size.y - document.querySelector('.map-card').offsetHeight) * 0.6;
+            const c = mapInstance.unproject(mapInstance.project([s.lat, s.lng], z).add([0, size.y / 2 - ty]), z);
+            if (dur) mapInstance.flyTo(c, z, { duration: dur });
+            else mapInstance.setView(c, z, { animate: false });
+        }
+
+        function goToStop(idx, instant) {
+            idx = Math.max(0, Math.min(allStops.length - 1, idx));
+            if (!mapInstance) { curIdx = idx; return; }
+            const s = allStops[idx], prev = allStops[curIdx];
+            if (idx === curIdx && !instant) { if (dayMarkers[s.dayIdx]) dayMarkers[s.dayIdx].openPopup(); return; }
+
+            const quick = instant || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const dur = Math.min(3.2, 0.9 + 0.35 * Math.log(1 + kmBetween(prev, s) / 10));
+            curIdx = idx;
+            mapInstance.closePopup();
+            if (shownDay !== s.day) renderDayMarkers(s.day);
+            dayMarkers.forEach((m, i) => m.setIcon(stopIcon(allStops[dayFirst[s.day] + i], i === s.dayIdx)));
+            updateSliders(s);
+
+            cancelAnimationFrame(animId);
+            const target = stopPtIdx[idx], start = progress, t0 = performance.now();
+            const finish = () => { progress = target; drawProgress(); if (dayMarkers[s.dayIdx]) dayMarkers[s.dayIdx].openPopup(); };
+            if (quick) { flyCam(s, 0); finish(); return; }
+            flyCam(s, dur);
+            const step = now => {
+                const t = Math.min(1, (now - t0) / (dur * 1000));
+                const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                progress = start + (target - start) * e;
+                drawProgress();
+                if (t < 1) animId = requestAnimationFrame(step); else finish();
+            };
+            animId = requestAnimationFrame(step);
+        }
+
+        function showDayOverview() {
+            if (!mapInstance) return;
+            const pts = allStops.filter(s => s.day === allStops[curIdx].day).map(s => [s.lat, s.lng]);
+            mapInstance.closePopup();
+            mapInstance.flyToBounds(L.latLngBounds(pts), {
+                paddingTopLeft: [40, 60], paddingBottomRight: [40, document.querySelector('.map-card').offsetHeight + 30],
+                duration: 1.4, maxZoom: 13
+            });
         }
 
         function switchView(viewName) {
@@ -383,13 +505,14 @@
             }
         }
 
-        function onSliderChange(val) { renderMapForDay(val); }
+        function onDaySlider(v) { goToStop(dayFirst[parseInt(v)]); }
+        function onStopSlider(v) { goToStop(dayFirst[allStops[curIdx].day] + parseInt(v) - 1); }
+        function stepStop(d) { goToStop(curIdx + d); }
 
         function jumpToCurrentTime() {
-            document.getElementById('day-slider').value = 1;
             if (currentView !== 'map') switchView('map');
-            renderMapForDay(1);
-            showToast("已平滑平移至行程起点 (重庆)");
+            setTimeout(() => goToStop(0), 400);
+            showToast("已平滑飞至行程起点");
         }
 
         renderTimeline();
