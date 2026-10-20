@@ -1,0 +1,27 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Environment and secrets (never commit these)
+.env
+.env.*
+*.pem
+*.key
+firebase-config.js
+serviceAccount*.json
+
+# Dependencies and build output (if you add a build step later)
+node_modules/
+dist/
+build/
+
+# Logs and temp files
+*.log
+*.tmp
