@@ -5,28 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>8天6夜 重庆·九寨沟 行程助手 | 实时共享行程与美图</title>
 
-    <!-- ========================================== -->
-    <!-- 🌐 分享预览卡片配置 (Open Graph / 社交媒体预览) -->
-    <!-- ========================================== -->
     <meta property="og:title" content="8天6夜 重庆·九寨沟 行程助手">
-    <meta property="og:description" content="人间仙境 魔幻8D之旅：重庆、成都、黄龙、九寨沟行程规划，支持实时上传与同步美图。">
-    <!-- 请在部署后将下面的图片链接换为您实际公开访问的封面图网址 -->
+    <meta property="og:description" content="人间仙境 魔幻8D之旅：重庆、成都、黄龙、九寨沟行程规划，支持查看沿途美图。">
     <meta property="og:image" content="https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80">
     <meta property="og:type" content="website">
-    
-    <!-- Twitter 专用预览卡片 -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="8天6夜 重庆·九寨沟 行程助手">
-    <meta name="twitter:description" content="人间仙境 魔幻8D之旅：重庆、成都、黄龙、九寨沟行程规划，支持实时上传与同步美图。">
+    <meta name="twitter:description" content="人间仙境 魔幻8D之旅：重庆、成都、黄龙、九寨沟行程规划，支持查看沿途美图。">
     <meta name="twitter:image" content="https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Leaflet CSS -->
+    <!-- Leaflet CSS / JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
     <style>
@@ -35,9 +28,7 @@
             background-color: #f3f4f6;
             color: #1f2937;
         }
-        .timeline-item {
-            position: relative;
-        }
+        .timeline-item { position: relative; }
         .timeline-item:not(:last-child)::after {
             content: '';
             position: absolute;
@@ -46,11 +37,6 @@
             bottom: -24px;
             width: 2px;
             background-color: #e5e7eb;
-        }
-        #map {
-            width: 100%;
-            height: calc(100dvh - 130px);
-            z-index: 10;
         }
         .custom-marker {
             background: #10b981;
@@ -73,14 +59,10 @@
         }
         #view-map { display: none; }
         #view-map:not(.hidden) { display: flex; flex-direction: column; }
-        #map { flex: 1 1 auto; min-height: 0; height: auto; width: 100%; }
-
-        /* Header view toggle: two equal tappable halves */
+        #map { flex: 1 1 auto; min-height: 0; height: auto; width: 100%; z-index: 10; }
         .view-toggle > button { flex: 1 1 0; justify-content: center; min-height: 40px; }
         .view-toggle { width: 100%; }
         .locate-btn { min-height: 40px; }
-
-        /* Map card sits above the Leaflet attribution and respects notches */
         .map-card {
             bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
             left: max(0.75rem, env(safe-area-inset-left, 0px));
@@ -88,10 +70,7 @@
         }
         .day-labels { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); text-align: center; }
         .day-labels em { font-style: normal; }
-
-        /* Touch-friendly tap targets */
         button, [onclick] { touch-action: manipulation; }
-        .timeline-content button { min-height: 36px; }
 
         @media (max-width: 639px) {
             header { padding-top: max(0.75rem, env(safe-area-inset-top, 0px)); }
@@ -116,7 +95,7 @@
                 </h1>
                 <p class="text-[11px] text-gray-500">重庆 · 成都 · 黄龙 · 九寨沟 | 2026.10.25 - 10.31</p>
             </div>
-            
+
             <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 <div class="view-toggle bg-gray-100 p-1 rounded-xl flex items-center space-x-1 border border-gray-200 sm:w-auto">
                     <button onclick="switchView('timeline')" id="btn-timeline" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white text-emerald-600 shadow-sm flex items-center">
@@ -133,23 +112,20 @@
         </div>
     </header>
 
-    <!-- Cloud Sync Status Banner -->
-    <div class="bg-emerald-50 border-b border-emerald-100 px-4 py-2 text-xs text-emerald-800 flex-shrink-0 flex items-center justify-between">
-        <div class="flex items-center truncate">
-            <i class="fa-solid fa-cloud-arrow-up text-emerald-600 mr-2 flex-shrink-0 animate-pulse"></i>
-            <span class="leading-snug">云端同步：您上传的照片将实时保存，所有查看此链接的好友均可同步欣赏！</span>
-        </div>
-        <span id="sync-status" class="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-bold whitespace-nowrap ml-2">连接中...</span>
+    <!-- Info Banner -->
+    <div class="bg-emerald-50 border-b border-emerald-100 px-4 py-2 text-xs text-emerald-800 flex-shrink-0 flex items-center">
+        <i class="fa-solid fa-images text-emerald-600 mr-2 flex-shrink-0"></i>
+        <span class="leading-snug">每个景点的照片来自仓库 photos 文件夹，点击照片可查看拍摄说明。</span>
     </div>
 
-    <!-- Main Content Container -->
+    <!-- Main Content -->
     <main class="flex-grow relative overflow-hidden bg-gray-50">
-        <!-- Timeline View Panel -->
+        <!-- Timeline View -->
         <div id="view-timeline" class="absolute inset-0 overflow-y-auto p-4 sm:p-6">
             <div class="max-w-3xl mx-auto space-y-6 pb-24" id="timeline-render-target"></div>
         </div>
 
-        <!-- Map View Panel -->
+        <!-- Map View -->
         <div id="view-map" class="absolute inset-0 hidden flex flex-col">
             <div id="map" class="flex-grow w-full"></div>
             <div class="map-card absolute z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-gray-200" ontouchstart="event.stopPropagation()">
@@ -171,93 +147,10 @@
         </div>
     </main>
 
-    <!-- Toast Message Box -->
+    <!-- Toast -->
     <div id="toast" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white px-4 py-2 rounded-xl text-xs shadow-2xl opacity-0 transition-opacity pointer-events-none z-50 flex items-center">
         <i class="fa-solid fa-bell text-emerald-400 mr-2"></i><span id="toast-text">提示信息</span>
     </div>
-
-    <!-- Firebase SDK & Sync Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        window.userUploadedImages = {};
-        const myFirebaseConfig = null; // 可填入您自己的Firebase配置
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
-
-        async function initFirebase() {
-            try {
-                const localPhotos = localStorage.getItem('itinerary_photos');
-                if (localPhotos) {
-                    window.userUploadedImages = JSON.parse(localPhotos);
-                    if (typeof window.renderTimeline === 'function') window.renderTimeline();
-                }
-            } catch(e) {}
-
-            if (!firebaseConfig) {
-                document.getElementById('sync-status').innerText = "本地离线模式 (仅本机可见)";
-                return;
-            }
-
-            try {
-                window.app = initializeApp(firebaseConfig);
-                window.db = getFirestore(window.app);
-                window.auth = getAuth(window.app);
-
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(window.auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(window.auth);
-                }
-
-                document.getElementById('sync-status').innerText = "云端已连接";
-                const docRef = doc(window.db, 'artifacts', appId, 'public', 'itinerary_photos');
-                
-                onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        if (data && data.images) {
-                            window.userUploadedImages = { ...window.userUploadedImages, ...data.images };
-                            localStorage.setItem('itinerary_photos', JSON.stringify(window.userUploadedImages));
-                            
-                            if (typeof window.renderTimeline === 'function') window.renderTimeline();
-                            if (typeof window.renderMapForDay === 'function') {
-                                window.renderMapForDay(document.getElementById('day-slider').value);
-                            }
-                        }
-                    }
-                }, () => { document.getElementById('sync-status').innerText = "云端同步断开"; });
-
-            } catch (e) {
-                document.getElementById('sync-status').innerText = "服务连接异常";
-            }
-        }
-
-        window.saveImageToCloud = async function(eventId, base64Data) {
-            window.userUploadedImages[eventId] = base64Data;
-            try { localStorage.setItem('itinerary_photos', JSON.stringify(window.userUploadedImages)); } catch(e){}
-            if (typeof window.renderTimeline === 'function') window.renderTimeline();
-            if (typeof window.renderMapForDay === 'function') window.renderMapForDay(document.getElementById('day-slider').value);
-
-            if (!window.db) {
-                showToastMsg("图片已保存至本机！(配置云端即可分享)");
-                return;
-            }
-
-            try {
-                const docRef = doc(window.db, 'artifacts', appId, 'public', 'itinerary_photos');
-                await setDoc(docRef, { images: { [eventId]: base64Data } }, { merge: true });
-                showToastMsg("照片已成功同步至云端！");
-            } catch (e) {
-                showToastMsg("上传云端失败：图片可能仍偏大");
-            }
-        };
-
-        initFirebase();
-    </script>
 
     <!-- Application Logic -->
     <script>
@@ -283,142 +176,81 @@
 
         const itineraryData = [
             { day: 1, id: "day-1", dateStr: "2026-10-25", weekday: "周日", title: "出发 - 重庆 (魔幻山城)", weather: { icon: "fa-cloud-sun", condition: "多云转阴", temp: "16°C - 21°C", rain: "30%" }, events: [
-                { seq: 1, time: "04:45", act: "从新加坡搭乘航班起飞", icon: "fa-plane-departure", imgKey: "flight", lat: 1.3644, lng: 103.9915, locationName: "新加坡樟宜机场" },
-                { seq: 2, time: "09:45", act: "抵达重庆江北机场", icon: "fa-plane-arrival", imgKey: "flight", lat: 29.7192, lng: 106.6420, locationName: "重庆江北国际机场" },
-                { seq: 3, time: "11:30", act: "游览【解放碑】与【人民大礼堂】", icon: "fa-landmark", imgKey: "jiefangbei", lat: 29.5560, lng: 106.5790, locationName: "解放碑" },
-                { seq: 4, time: "14:30", act: "漫步【磁器口古镇】", icon: "fa-shop", imgKey: "ciqikou", lat: 29.6275, lng: 106.4608, locationName: "磁器口古镇" },
-                { seq: 5, time: "16:30", act: "打卡【李子坝轻轨穿楼】", icon: "fa-train-subway", imgKey: "liziba", lat: 29.5531, lng: 106.5332, locationName: "李子坝轻轨站" },
-                { seq: 6, time: "19:30", act: "赏【洪崖洞】夜景入住", icon: "fa-moon", imgKey: "hongyadong", lat: 29.5605, lng: 106.5854, locationName: "洪崖洞" }
+                { seq: 1, time: "04:45", act: "从新加坡搭乘航班起飞", imgKey: "flight", lat: 1.3644, lng: 103.9915, locationName: "新加坡樟宜机场" },
+                { seq: 2, time: "09:45", act: "抵达重庆江北机场", imgKey: "flight", lat: 29.7192, lng: 106.6420, locationName: "重庆江北国际机场" },
+                { seq: 3, time: "11:30", act: "游览【解放碑】与【人民大礼堂】", imgKey: "jiefangbei", lat: 29.5560, lng: 106.5790, locationName: "解放碑" },
+                { seq: 4, time: "14:30", act: "漫步【磁器口古镇】", imgKey: "ciqikou", lat: 29.6275, lng: 106.4608, locationName: "磁器口古镇" },
+                { seq: 5, time: "16:30", act: "打卡【李子坝轻轨穿楼】", imgKey: "liziba", lat: 29.5531, lng: 106.5332, locationName: "李子坝轻轨站" },
+                { seq: 6, time: "19:30", act: "赏【洪崖洞】夜景入住", imgKey: "hongyadong", lat: 29.5605, lng: 106.5854, locationName: "洪崖洞" }
             ]},
             { day: 2, id: "day-2", dateStr: "2026-10-26", weekday: "周一", title: "重庆 - 成都 (锦里古街)", weather: { icon: "fa-cloud-rain", condition: "小雨", temp: "15°C - 19°C", rain: "70%" }, events: [
-                { seq: 7, time: "09:00", act: "前往天府之国成都", icon: "fa-bus", imgKey: "eastMemory", lat: 30.5728, lng: 104.0668, locationName: "成都市区" },
-                { seq: 8, time: "11:30", act: "前往【东郊记忆】", icon: "fa-camera", imgKey: "eastMemory", lat: 30.6732, lng: 104.1195, locationName: "东郊记忆" },
-                { seq: 9, time: "15:00", act: "游览【锦里古街】", icon: "fa-person-walking", imgKey: "jinli", lat: 30.6485, lng: 104.0515, locationName: "锦里古街" },
-                { seq: 10, time: "18:30", act: "晚餐后入住成都酒店", icon: "fa-utensils", imgKey: "jinli", lat: 30.6500, lng: 104.0600, locationName: "成都酒店" }
+                { seq: 7, time: "09:00", act: "前往天府之国成都", imgKey: "eastMemory", lat: 30.5728, lng: 104.0668, locationName: "成都市区" },
+                { seq: 8, time: "11:30", act: "前往【东郊记忆】", imgKey: "eastMemory", lat: 30.6732, lng: 104.1195, locationName: "东郊记忆" },
+                { seq: 9, time: "15:00", act: "游览【锦里古街】", imgKey: "jinli", lat: 30.6485, lng: 104.0515, locationName: "锦里古街" },
+                { seq: 10, time: "18:30", act: "晚餐后入住成都酒店", imgKey: "jinli", lat: 30.6500, lng: 104.0600, locationName: "成都酒店" }
             ]},
             { day: 3, id: "day-3", dateStr: "2026-10-27", weekday: "周二", title: "成都 - 黄龙 - 九寨沟", weather: { icon: "fa-snowflake", condition: "晴间多云(高原)", temp: "4°C - 14°C", rain: "10%" }, events: [
-                { seq: 11, time: "07:30", act: "动车前往松潘", icon: "fa-train", imgKey: "huanglong", lat: 32.6515, lng: 103.5750, locationName: "松潘高铁站" },
-                { seq: 12, time: "11:00", act: "游览【黄龙景区】", icon: "fa-mountain", imgKey: "huanglong", lat: 32.5020, lng: 103.8340, locationName: "黄龙景区" },
-                { seq: 13, time: "18:00", act: "前往九寨沟入住酒店", icon: "fa-hotel", imgKey: "jiuzhaigou", lat: 33.1593, lng: 103.9185, locationName: "九寨沟酒店" }
+                { seq: 11, time: "07:30", act: "动车前往松潘", imgKey: "huanglong", lat: 32.6515, lng: 103.5750, locationName: "松潘高铁站" },
+                { seq: 12, time: "11:00", act: "游览【黄龙景区】", imgKey: "huanglong", lat: 32.5020, lng: 103.8340, locationName: "黄龙景区" },
+                { seq: 13, time: "18:00", act: "前往九寨沟入住酒店", imgKey: "jiuzhaigou", lat: 33.1593, lng: 103.9185, locationName: "九寨沟酒店" }
             ]},
             { day: 4, id: "day-4", dateStr: "2026-10-28", weekday: "周三", title: "九寨沟风景区深度游", weather: { icon: "fa-cloud-sun", condition: "多云", temp: "5°C - 15°C", rain: "20%" }, events: [
-                { seq: 14, time: "08:00", act: "进入【九寨沟风景区】", icon: "fa-bus", imgKey: "jiuzhaigou", lat: 33.1593, lng: 103.9185, locationName: "九寨沟沟口" },
-                { seq: 15, time: "09:30", act: "游览【双龙海瀑布】", icon: "fa-water", imgKey: "jiuzhaigou", lat: 33.1800, lng: 103.9000, locationName: "双龙海瀑布" },
-                { seq: 16, time: "11:30", act: "打卡【镜海】与【五花海】", icon: "fa-camera-retro", imgKey: "jiuzhaigou", lat: 33.2200, lng: 103.8800, locationName: "五花海" },
-                { seq: 17, time: "15:00", act: "游览【长海】与【五彩池】", icon: "fa-image", imgKey: "jiuzhaigou", lat: 33.2800, lng: 103.9050, locationName: "长海" },
-                { seq: 18, time: "19:00", act: "返回九寨沟酒店休息", icon: "fa-bed", imgKey: "jiuzhaigou", lat: 33.1593, lng: 103.9185, locationName: "九寨沟酒店" }
+                { seq: 14, time: "08:00", act: "进入【九寨沟风景区】", imgKey: "jiuzhaigou", lat: 33.1593, lng: 103.9185, locationName: "九寨沟沟口" },
+                { seq: 15, time: "09:30", act: "游览【双龙海瀑布】", imgKey: "jiuzhaigou", lat: 33.1800, lng: 103.9000, locationName: "双龙海瀑布" },
+                { seq: 16, time: "11:30", act: "打卡【镜海】与【五花海】", imgKey: "jiuzhaigou", lat: 33.2200, lng: 103.8800, locationName: "五花海" },
+                { seq: 17, time: "15:00", act: "游览【长海】与【五彩池】", imgKey: "jiuzhaigou", lat: 33.2800, lng: 103.9050, locationName: "长海" },
+                { seq: 18, time: "19:00", act: "返回九寨沟酒店休息", imgKey: "jiuzhaigou", lat: 33.1593, lng: 103.9185, locationName: "九寨沟酒店" }
             ]},
             { day: 5, id: "day-5", dateStr: "2026-10-29", weekday: "周四", title: "九寨沟 - 成都", weather: { icon: "fa-sun", condition: "晴", temp: "8°C - 18°C", rain: "15%" }, events: [
-                { seq: 19, time: "08:30", act: "乘车返回成都", icon: "fa-car", imgKey: "baoen", lat: 32.3500, lng: 104.2300, locationName: "九绵高速沿途" },
-                { seq: 20, time: "11:30", act: "游览古刹【报恩寺】", icon: "fa-place-of-worship", imgKey: "baoen", lat: 32.6360, lng: 104.7210, locationName: "平武报恩寺" },
-                { seq: 21, time: "18:00", act: "抵达成都入住酒店", icon: "fa-utensils", imgKey: "chunxi", lat: 30.6574, lng: 104.0658, locationName: "成都酒店" }
+                { seq: 19, time: "08:30", act: "乘车返回成都", imgKey: "baoen", lat: 32.3500, lng: 104.2300, locationName: "九绵高速沿途" },
+                { seq: 20, time: "11:30", act: "游览古刹【报恩寺】", imgKey: "baoen", lat: 32.6360, lng: 104.7210, locationName: "平武报恩寺" },
+                { seq: 21, time: "18:00", act: "抵达成都入住酒店", imgKey: "chunxi", lat: 30.6574, lng: 104.0658, locationName: "成都酒店" }
             ]},
             { day: 6, id: "day-6", dateStr: "2026-10-30", weekday: "周五", title: "成都 (大熊猫与春熙路)", weather: { icon: "fa-cloud-sun", condition: "多云", temp: "14°C - 22°C", rain: "25%" }, events: [
-                { seq: 22, time: "08:30", act: "观看【成都大熊猫】", icon: "fa-paw", imgKey: "panda", lat: 30.7420, lng: 104.1440, locationName: "大熊猫繁育研究基地" },
-                { seq: 23, time: "11:30", act: "游览【宽窄巷子】", icon: "fa-store", imgKey: "kuanzhai", lat: 30.6700, lng: 104.0535, locationName: "宽窄巷子" },
-                { seq: 24, time: "14:30", act: "漫步【春熙路】", icon: "fa-bag-shopping", imgKey: "chunxi", lat: 30.6574, lng: 104.0818, locationName: "春熙路" },
-                { seq: 25, time: "16:30", act: "打卡【IFS太古里】", icon: "fa-camera", imgKey: "taikooli", lat: 30.5925, lng: 104.0750, locationName: "IFS太古里" },
-                { seq: 26, time: "19:00", act: "晚餐后返回酒店", icon: "fa-bed", imgKey: "chunxi", lat: 30.6574, lng: 104.0658, locationName: "成都酒店" }
+                { seq: 22, time: "08:30", act: "观看【成都大熊猫】", imgKey: "panda", lat: 30.7420, lng: 104.1440, locationName: "大熊猫繁育研究基地" },
+                { seq: 23, time: "11:30", act: "游览【宽窄巷子】", imgKey: "kuanzhai", lat: 30.6700, lng: 104.0535, locationName: "宽窄巷子" },
+                { seq: 24, time: "14:30", act: "漫步【春熙路】", imgKey: "chunxi", lat: 30.6574, lng: 104.0818, locationName: "春熙路" },
+                { seq: 25, time: "16:30", act: "打卡【IFS太古里】", imgKey: "taikooli", lat: 30.5925, lng: 104.0750, locationName: "IFS太古里" },
+                { seq: 26, time: "19:00", act: "晚餐后返回酒店", imgKey: "chunxi", lat: 30.6574, lng: 104.0658, locationName: "成都酒店" }
             ]},
             { day: 7, id: "day-7", dateStr: "2026-10-31", weekday: "周六", title: "成都 - 重庆 - 返回", weather: { icon: "fa-cloud", condition: "多云", temp: "16°C - 21°C", rain: "30%" }, events: [
-                { seq: 27, time: "08:30", act: "游览【鹅岭二厂】", icon: "fa-palette", imgKey: "eling", lat: 29.5525, lng: 106.5400, locationName: "鹅岭二厂" },
-                { seq: 28, time: "11:00", act: "漫步【弹子石老街】", icon: "fa-city", imgKey: "danzishi", lat: 29.5780, lng: 106.5890, locationName: "弹子石老街" },
-                { seq: 29, time: "13:30", act: "前往机场办理登机", icon: "fa-plane-departure", imgKey: "flight", lat: 29.7192, lng: 106.6420, locationName: "重庆江北国际机场" },
-                { seq: 30, time: "23:10", act: "搭乘航班返回", icon: "fa-plane", imgKey: "flight", lat: 29.7192, lng: 106.6420, locationName: "重庆江北国际机场" }
+                { seq: 27, time: "08:30", act: "游览【鹅岭二厂】", imgKey: "eling", lat: 29.5525, lng: 106.5400, locationName: "鹅岭二厂" },
+                { seq: 28, time: "11:00", act: "漫步【弹子石老街】", imgKey: "danzishi", lat: 29.5780, lng: 106.5890, locationName: "弹子石老街" },
+                { seq: 29, time: "13:30", act: "前往机场办理登机", imgKey: "flight", lat: 29.7192, lng: 106.6420, locationName: "重庆江北国际机场" },
+                { seq: 30, time: "23:10", act: "搭乘航班返回", imgKey: "flight", lat: 29.7192, lng: 106.6420, locationName: "重庆江北国际机场" }
             ]},
             { day: 8, id: "day-8", dateStr: "2026-11-01", weekday: "周日", title: "抵达温馨家园", weather: { icon: "fa-sun", condition: "晴", temp: "26°C - 32°C", rain: "40%" }, events: [
-                { seq: 31, time: "03:45", act: "安全抵达新加坡", icon: "fa-house-chimney", imgKey: "flight", lat: 1.3644, lng: 103.9915, locationName: "新加坡樟宜机场" }
+                { seq: 31, time: "03:45", act: "安全抵达新加坡", imgKey: "flight", lat: 1.3644, lng: 103.9915, locationName: "新加坡樟宜机场" }
             ]}
         ];
+
+        /* Photos come from photos/<eventId>.jpg, e.g. photos/d1-s3.jpg */
+        const PHOTO_DIR = 'photos/';
+        function photoSrc(eventId) {
+            return PHOTO_DIR + eventId + '.jpg';
+        }
 
         let currentView = 'timeline';
         let mapInstance = null;
         let mapLayerGroup = null;
 
-        function triggerImageUpload(eventId) {
-            const input = document.getElementById(`upload-${eventId}`);
-            if (input) input.click();
-        }
-
-        function handleImageUpload(event, eventId) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            showToastMsg("正在处理压缩图片...");
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX_DIM = 800;
-                    let w = img.width;
-                    let h = img.height;
-
-                    if (w > h && w > MAX_DIM) {
-                        h = Math.round((h * MAX_DIM) / w); w = MAX_DIM;
-                    } else if (h > MAX_DIM) {
-                        w = Math.round((w * MAX_DIM) / h); h = MAX_DIM;
-                    }
-
-                    canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-
-                    if (window.saveImageToCloud) {
-                        window.saveImageToCloud(eventId, compressedBase64);
-                    }
-                };
-                img.onerror = () => showToastMsg("图片读取失败");
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-            event.target.value = '';
-        }
-
-        function showToastMsg(msg) {
-            const toast = document.getElementById('toast');
+        function showToast(msg, ms = 3000) {
             document.getElementById('toast-text').innerText = msg;
-            toast.style.opacity = '1';
-            setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+            document.getElementById('toast').style.opacity = '1';
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => { document.getElementById('toast').style.opacity = '0'; }, ms);
         }
 
-        function switchView(viewName) {
-            currentView = viewName;
-            const timelineView = document.getElementById('view-timeline');
-            const mapView = document.getElementById('view-map');
-            const btnTimeline = document.getElementById('btn-timeline');
-            const btnMap = document.getElementById('btn-map');
-
-            if (viewName === 'timeline') {
-                timelineView.classList.remove('hidden');
-                mapView.classList.add('hidden');
-                btnTimeline.className = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white text-emerald-600 shadow-sm flex items-center";
-                btnMap.className = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 hover:text-gray-900 flex items-center";
-            } else {
-                timelineView.classList.add('hidden');
-                mapView.classList.remove('hidden');
-                btnMap.className = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white text-emerald-600 shadow-sm flex items-center";
-                btnTimeline.className = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 hover:text-gray-900 flex items-center";
-                
-                setTimeout(() => {
-                    if (!mapInstance) initLeafletMap();
-                    else mapInstance.invalidateSize();
-                }, 150);
-            }
+        function showPhotoHint(eventId) {
+            showToast(`照片文件名：photos/${eventId}.jpg`, 4000);
         }
 
-        window.renderTimeline = function() {
+        function renderTimeline() {
             const container = document.getElementById('timeline-render-target');
-            if (!container) return;
             let html = '';
 
             itineraryData.forEach((day) => {
-                const dateObj = new Date(day.dateStr);
-                const formatOpts = { month: 'long', day: 'numeric', weekday: 'short' };
-                const dateDisplay = dateObj.toLocaleDateString('zh-CN', formatOpts);
+                const dateDisplay = new Date(day.dateStr).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
 
                 html += `
                 <div class="timeline-item" id="${day.id}">
@@ -445,8 +277,7 @@
                 `;
 
                 day.events.forEach((ev) => {
-                    const uniqueEventId = `d${day.day}-s${ev.seq}`;
-                    const currentImg = (window.userUploadedImages && window.userUploadedImages[uniqueEventId]) || (ev.imgKey && unsplashImages[ev.imgKey]);
+                    const eventId = `d${day.day}-s${ev.seq}`;
 
                     html += `
                             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
@@ -458,14 +289,9 @@
                                         <div class="text-[10px] text-gray-400 mt-0.5"><i class="fa-solid fa-location-dot text-emerald-500 mr-1"></i>${ev.locationName}</div>
                                     </div>
                                 </div>
-                            
-                                <div class="w-full sm:w-36 h-40 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 shadow-sm mt-2 sm:mt-0 relative group border border-gray-200 bg-gray-100 flex items-center justify-center cursor-pointer" onclick="triggerImageUpload('${uniqueEventId}')" title="点击更改照片">
-                                    <input type="file" id="upload-${uniqueEventId}" accept="image/*" class="hidden" onclick="event.stopPropagation()" onchange="handleImageUpload(event, '${uniqueEventId}')">
-                                    <img src="${currentImg}" alt="scenic" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/400x300/10b981/ffffff?text=Scenic'">
-                                    
-                                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-medium gap-1">
-                                        <i class="fa-solid fa-cloud-arrow-up text-sm"></i> 更换照片
-                                    </div>
+
+                                <div class="w-full sm:w-36 h-40 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 shadow-sm mt-2 sm:mt-0 relative group border border-gray-200 bg-gray-100 cursor-pointer" onclick="showPhotoHint('${eventId}')">
+                                    <img src="${photoSrc(eventId)}" alt="${ev.locationName}" loading="lazy" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" onerror="this.onerror=null;this.src=unsplashImages['${ev.imgKey}']">
                                 </div>
                             </div>
                     `;
@@ -475,7 +301,7 @@
             });
 
             container.innerHTML = html;
-        };
+        }
 
         function initLeafletMap() {
             mapInstance = L.map('map', { zoomControl: false }).setView([29.5605, 106.5854], 11);
@@ -487,7 +313,7 @@
             renderMapForDay(1);
         }
 
-        window.renderMapForDay = function(dayNum) {
+        function renderMapForDay(dayNum) {
             if (!mapLayerGroup) return;
             mapLayerGroup.clearLayers();
 
@@ -501,8 +327,7 @@
             const latLngs = [];
 
             targetDay.events.forEach((ev) => {
-                const latLng = [ev.lat, ev.lng];
-                latLngs.push(latLng);
+                latLngs.push([ev.lat, ev.lng]);
 
                 const customIcon = L.divIcon({
                     className: 'custom-div-icon',
@@ -511,19 +336,18 @@
                     iconAnchor: [16, 16]
                 });
 
-                const uniqueEventId = `d${targetDay.day}-s${ev.seq}`;
-                const currentImg = (window.userUploadedImages && window.userUploadedImages[uniqueEventId]) || (ev.imgKey && unsplashImages[ev.imgKey]);
+                const eventId = `d${targetDay.day}-s${ev.seq}`;
 
                 const popupContent = `
                     <div style="width: 210px; font-family: inherit;">
-                        <img src="${currentImg}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 6px;" onerror="this.src='https://placehold.co/300x200/10b981/ffffff?text=Scenic'">
+                        <img src="${photoSrc(eventId)}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 6px;" onerror="this.onerror=null;this.src=unsplashImages['${ev.imgKey}']">
                         <div style="font-weight: bold; font-size: 13px; color: #111; margin-bottom: 2px;">第 ${targetDay.day}天 · ${ev.time}</div>
                         <div style="font-size: 11px; color: #4b5563; margin-bottom: 4px;">${ev.act}</div>
                         <div style="font-size: 10px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-location-dot"></i> ${ev.locationName}</div>
                     </div>
                 `;
 
-                L.marker(latLng, { icon: customIcon }).bindPopup(popupContent).addTo(mapLayerGroup);
+                L.marker([ev.lat, ev.lng], { icon: customIcon }).bindPopup(popupContent).addTo(mapLayerGroup);
             });
 
             if (latLngs.length > 0) {
@@ -531,7 +355,33 @@
                 if (latLngs.length === 1) mapInstance.flyTo(latLngs[0], 13, { duration: 1.0 });
                 else mapInstance.flyToBounds(polyline.getBounds(), { padding: [60, 60], duration: 1.0, maxZoom: 13 });
             }
-        };
+        }
+
+        function switchView(viewName) {
+            currentView = viewName;
+            const timelineView = document.getElementById('view-timeline');
+            const mapView = document.getElementById('view-map');
+            const btnTimeline = document.getElementById('btn-timeline');
+            const btnMap = document.getElementById('btn-map');
+            const activeCls = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-white text-emerald-600 shadow-sm flex items-center";
+            const idleCls = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-600 hover:text-gray-900 flex items-center";
+
+            if (viewName === 'timeline') {
+                timelineView.classList.remove('hidden');
+                mapView.classList.add('hidden');
+                btnTimeline.className = activeCls;
+                btnMap.className = idleCls;
+            } else {
+                timelineView.classList.add('hidden');
+                mapView.classList.remove('hidden');
+                btnMap.className = activeCls;
+                btnTimeline.className = idleCls;
+                setTimeout(() => {
+                    if (!mapInstance) initLeafletMap();
+                    else mapInstance.invalidateSize();
+                }, 150);
+            }
+        }
 
         function onSliderChange(val) { renderMapForDay(val); }
 
@@ -539,10 +389,10 @@
             document.getElementById('day-slider').value = 1;
             if (currentView !== 'map') switchView('map');
             renderMapForDay(1);
-            showToastMsg("已平滑平移至行程起点 (重庆)");
+            showToast("已平滑平移至行程起点 (重庆)");
         }
 
-        window.onload = function() { renderTimeline(); };
+        renderTimeline();
     </script>
 </body>
 </html>
