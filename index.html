@@ -96,6 +96,13 @@
         .fs-bar button { padding: 6px 10px; border-radius: 9999px; font-size: 0.8125rem; color: #374151; }
         .fs-bar button.on { background: #059669; color: #fff; font-weight: 700; }
         .fs-bar button:not(.on):hover { background: #f3f4f6; }
+        /* Header and info banner keep a fixed size, so the top bar never grows with the text setting */
+        header h1 { font-size: 16px !important; }
+        header p { font-size: 11px !important; }
+        header button { font-size: 12px !important; }
+        @media (min-width: 640px) { header h1 { font-size: 20px !important; } }
+        .info-banner { font-size: 12px !important; }
+        .info-banner * { font-size: inherit; }
     </style>
 </head>
 <body class="flex flex-col h-[100dvh] overflow-hidden">
@@ -127,7 +134,7 @@
     </header>
 
     <!-- Info Banner -->
-    <div class="bg-emerald-50 border-b border-emerald-100 px-4 py-2 text-xs text-emerald-800 flex-shrink-0 flex items-center">
+    <div class="info-banner bg-emerald-50 border-b border-emerald-100 px-4 py-2 text-xs text-emerald-800 flex-shrink-0 flex items-center">
         <i class="fa-solid fa-images text-emerald-600 mr-2 flex-shrink-0"></i>
         <span class="leading-snug">每个景点的照片来自仓库 photos 文件夹，点击照片可查看拍摄说明。</span>
     </div>
