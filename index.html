@@ -557,6 +557,8 @@
             const slot = document.getElementById(viewName === 'timeline' ? 'toggle-slot-timeline' : 'toggle-slot-map');
             const tog = document.querySelector('.view-toggle');
             if (slot && tog) slot.appendChild(tog);
+            const fsBar = document.querySelector('.fs-bar');
+            if (fsBar) fsBar.style.display = viewName === 'timeline' ? '' : 'none';
             if (viewName === 'timeline') {
                 timelineView.classList.remove('hidden');
                 mapView.classList.add('hidden');
