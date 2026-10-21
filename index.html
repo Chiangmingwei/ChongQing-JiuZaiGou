@@ -146,6 +146,7 @@
                     <div id="stop-title" class="text-[11px] sm:text-xs text-gray-600 truncate min-w-0 flex-1"></div>
                     <button onclick="showDayOverview()" class="text-[10px] px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 flex-shrink-0">全天概览</button>
                 </div>
+                <div id="stop-weather" class="mb-1.5 text-[10px] text-sky-700 min-h-[16px]"></div>
                 <div class="flex items-center gap-2">
                     <span class="w-7 text-center text-[10px] font-bold text-emerald-700 flex-shrink-0">天</span>
                     <div class="flex-1 min-w-0">
@@ -307,6 +308,7 @@
                                     <div class="text-xs sm:text-sm font-medium text-gray-800 break-words flex-grow">
                                         ${ev.act}
                                         <div class="text-[10px] text-gray-400 mt-0.5"><i class="fa-solid fa-location-dot text-emerald-500 mr-1"></i>${ev.locationName}</div>
+                                        <div class="wx-tl text-[10px] text-sky-700 mt-0.5" data-stop="${eventId}"></div>
                                     </div>
                                 </div>
 
@@ -321,6 +323,11 @@
             });
 
             container.innerHTML = html;
+            // Fill each event's forecast at its arrival time (same Open-Meteo data as the map)
+            container.querySelectorAll('.wx-tl').forEach(el => {
+                const s = allStops.find(x => x.id === el.dataset.stop);
+                if (s) renderWeather(s, el, false);
+            });
         }
 
         /* ===== Map: stop-by-stop camera + animated route ===== */
@@ -391,6 +398,7 @@
                     <div style="font-weight: bold; font-size: 13px; color: #111; margin-bottom: 2px;">第 ${s.day}天 · ${s.time}</div>
                     <div style="font-size: 11px; color: #4b5563; margin-bottom: 4px;">${s.act}</div>
                     <div style="font-size: 10px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-location-dot"></i> ${s.locationName}</div>
+                    <div class="wx-slot" style="font-size: 11px; color: #0369a1; margin-top: 4px;"></div>
                 </div>`;
         }
 
@@ -401,6 +409,7 @@
                 const m = L.marker([s.lat, s.lng], { icon: stopIcon(s, false) })
                     .bindPopup(popupHtml(s), { autoPan: false, offset: [0, -6] }).addTo(dayLayer);
                 m.on('click', () => goToStop(allStops.indexOf(s)));
+                m.on('popupopen', e => renderWeather(s, e.popup.getElement().querySelector('.wx-slot'), false));
                 dayMarkers.push(m);
             });
             shownDay = day;
@@ -457,7 +466,7 @@
 
             cancelAnimationFrame(animId);
             const target = stopPtIdx[idx], start = progress, t0 = performance.now();
-            const finish = () => { progress = target; drawProgress(); if (dayMarkers[s.dayIdx]) dayMarkers[s.dayIdx].openPopup(); };
+            const finish = () => { progress = target; drawProgress(); if (dayMarkers[s.dayIdx]) dayMarkers[s.dayIdx].openPopup(); renderWeather(s, document.getElementById('stop-weather'), true); };
             if (quick) { flyCam(s, 0); finish(); return; }
             flyCam(s, dur);
             const step = now => {
@@ -468,6 +477,54 @@
                 if (t < 1) animId = requestAnimationFrame(step); else finish();
             };
             animId = requestAnimationFrame(step);
+        }
+
+        /* ===== Weather: Open-Meteo hourly forecast per stop (Asia/Shanghai) ===== */
+        const WX_TEXT = {0:'晴',1:'大致晴',2:'多云',3:'阴',45:'雾',48:'雾凇',51:'小毛毛雨',53:'毛毛雨',55:'大毛毛雨',61:'小雨',63:'中雨',65:'大雨',71:'小雪',73:'中雪',75:'大雪',80:'阵雨',81:'阵雨',82:'强阵雨',95:'雷暴',96:'雷暴夹冰雹',99:'强雷暴夹冰雹'};
+        function wxIcon(c) {
+            if (c <= 1) return 'fa-sun'; if (c === 2) return 'fa-cloud-sun'; if (c === 3) return 'fa-cloud';
+            if (c <= 48) return 'fa-smog'; if (c >= 71 && c <= 77) return 'fa-snowflake'; if (c >= 95) return 'fa-bolt';
+            return 'fa-cloud-rain';
+        }
+        const wxCache = {};
+        const tripStart = itineraryData[0].dateStr, tripEnd = itineraryData[itineraryData.length - 1].dateStr;
+        function wxFor(s) {
+            const key = s.lat.toFixed(3) + ',' + s.lng.toFixed(3);
+            if (!wxCache[key]) {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lng}` +
+                    `&hourly=temperature_2m,precipitation_probability,weather_code&timezone=Asia%2FShanghai` +
+                    `&start_date=${tripStart}&end_date=${tripEnd}`;
+                wxCache[key] = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                    .then(j => {
+                        const m = {};
+                        j.hourly.time.forEach((t, i) => m[t] = { temp: j.hourly.temperature_2m[i], pop: j.hourly.precipitation_probability[i], code: j.hourly.weather_code[i] });
+                        return m;
+                    }).catch(() => null);
+            }
+            return wxCache[key];
+        }
+        function wxCell(d) {
+            return `<i class="fa-solid ${wxIcon(d.code)}"></i> ${Math.round(d.temp)}° <span class="text-sky-500">☂${d.pop}%</span>`;
+        }
+        // Fills a weather slot with the forecast at the stop's arrival hour, plus an hourly strip for the card
+        async function renderWeather(s, el, detailed) {
+            if (!el) return;
+            const id = s.id;
+            el.dataset.stop = id;
+            el.innerHTML = '<span class="text-gray-400">天气加载中…</span>';
+            const data = await wxFor(s);
+            if (el.dataset.stop !== id) return;
+            if (!data) { el.innerHTML = '<span class="text-gray-400">天气暂不可用</span>'; return; }
+            const hh = s.time.slice(0, 2), at = data[`${s.dayObj.dateStr}T${hh}:00`];
+            if (!at) { el.innerHTML = ''; return; }
+            const label = `<b>${s.time}</b> ${WX_TEXT[at.code] || ''} · ${wxCell(at)}`;
+            if (!detailed) { el.innerHTML = label; return; }
+            let strip = '<div class="flex gap-1 overflow-x-auto mt-1 pb-0.5">';
+            for (let hr = 6; hr <= 22; hr += 2) {
+                const d = data[`${s.dayObj.dateStr}T${String(hr).padStart(2, '0')}:00`];
+                if (d) strip += `<div class="flex-shrink-0 text-center bg-sky-50 rounded-md px-1.5 py-1 min-w-[46px]"><div class="text-[9px] text-gray-500">${String(hr).padStart(2, '0')}:00</div><div>${wxCell(d)}</div></div>`;
+            }
+            el.innerHTML = label + strip + '</div>';
         }
 
         function showDayOverview() {
